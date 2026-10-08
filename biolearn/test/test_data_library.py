@@ -3,6 +3,8 @@ import os
 import pandas as pd
 import numpy as np
 from io import StringIO
+from unittest.mock import patch
+from biolearn.cache import LocalFolderCache, NoCache
 from biolearn.data_library import (
     parse_library_file,
     DataSource,
@@ -395,3 +397,80 @@ def test_datasource_with_unknown_corrections():
     with pytest.raises(ValueError) as e:
         source.load()
     assert "Unknown correction" in str(e.value)
+
+
+def _geo_test_source_spec():
+    return {
+        "id": "TestData",
+        "path": get_test_data_file("geo_dnam_test_file"),
+        "parser": {
+            "type": "geo-matrix",
+            "id-row": 33,
+            "metadata": {
+                "age": {"row": 47, "parse": "numeric"},
+                "sex": {"row": 41, "parse": "sex"},
+                "cancer": {"row": 50, "parse": "string"},
+            },
+            "matrix-start": 74,
+        },
+    }
+
+
+def test_load_uses_cache_on_second_call(tmp_path):
+    cache = LocalFolderCache(str(tmp_path), 1)
+    source = DataSource(_geo_test_source_spec(), cache=cache)
+
+    with patch.object(
+        source.parser, "parse", wraps=source.parser.parse
+    ) as parse:
+        first = source.load()
+        second = source.load()
+
+    assert parse.call_count == 1
+    pd.testing.assert_frame_equal(first.dnam, second.dnam)
+    pd.testing.assert_frame_equal(first.metadata, second.metadata)
+
+
+def test_load_reparses_after_cache_remove(tmp_path):
+    cache = LocalFolderCache(str(tmp_path), 1)
+    source = DataSource(_geo_test_source_spec(), cache=cache)
+
+    with patch.object(
+        source.parser, "parse", wraps=source.parser.parse
+    ) as parse:
+        source.load()
+        cache.remove("TestData")
+        source.load()
+
+    assert parse.call_count == 2
+
+
+def test_load_with_no_cache_always_parses():
+    source = DataSource(_geo_test_source_spec(), cache=NoCache())
+
+    with patch.object(
+        source.parser, "parse", wraps=source.parser.parse
+    ) as parse:
+        source.load()
+        source.load()
+
+    assert parse.call_count == 2
+
+
+def test_data_library_passes_cache_to_sources(tmp_path):
+    cache = LocalFolderCache(str(tmp_path), 1)
+    library = DataLibrary(
+        library_file=get_test_data_file("library_files/library.yaml"),
+        cache=cache,
+    )
+
+    assert all(source.cache is cache for source in library.sources)
+
+
+def test_data_library_uses_default_cache():
+    library = DataLibrary(
+        library_file=get_test_data_file("library_files/library.yaml")
+    )
+
+    assert isinstance(library.cache, LocalFolderCache)
+    assert all(source.cache is library.cache for source in library.sources)
