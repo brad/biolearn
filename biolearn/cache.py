@@ -72,7 +72,17 @@ class NoCache:
 
 
 class LocalFolderCache:
-    """LRU-style cache that stores pickled objects in a local directory."""
+    """LRU-style cache that stores pickled objects in a local directory.
+
+    Pass an instance to :class:`biolearn.data_library.DataLibrary` to choose
+    where loaded datasets are cached and how much disk space they may use.
+
+    Examples
+    --------
+    >>> from biolearn.data_library import DataLibrary
+    >>> cache = LocalFolderCache("data/cache/", max_size_gb=100)
+    >>> data = DataLibrary(cache=cache).get("GSE41169").load()
+    """
 
     def __init__(self, path: str, max_size_gb: float):
         """

@@ -1359,6 +1359,28 @@ class DataLibrary:
     The DataLibrary class is responsible for loading, storing, and retrieving data sources.
     Data sources are defined in a library file and new sources can easily be added at runtime.
     Currently DNA methylation data from GEO is supported.
+
+    Parsed datasets are cached on disk, so loading the same source again is
+    fast. By default the cache lives in the user cache directory
+    (``appdirs.user_cache_dir("bio-learn")``) and holds up to 50 GB, evicting
+    the least recently used entries first.
+
+    Examples
+    --------
+    >>> # Keep the cache in a folder of your choice, capped at 100 GB
+    >>> from biolearn.cache import LocalFolderCache
+    >>> cache = LocalFolderCache("data/cache/", max_size_gb=100)
+    >>> library = DataLibrary(cache=cache)
+    >>> data = library.get("GSE41169").load()  # parses and caches
+    >>> data = library.get("GSE41169").load()  # read from data/cache/
+
+    >>> # Turn caching off
+    >>> from biolearn.cache import NoCache
+    >>> library = DataLibrary(cache=NoCache())
+
+    >>> # Drop one cached dataset, or empty the cache
+    >>> cache.remove("GSE41169")
+    >>> cache.clear()
     """
 
     def __init__(self, library_file=None, cache=None):
