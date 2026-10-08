@@ -416,61 +416,72 @@ def _geo_test_source_spec():
     }
 
 
-def test_load_uses_cache_on_second_call(tmp_path):
-    cache = LocalFolderCache(str(tmp_path), 1)
-    source = DataSource(_geo_test_source_spec(), cache=cache)
+@pytest.fixture
+def local_cache(tmp_path):
+    return LocalFolderCache(str(tmp_path), 1)
 
-    with patch.object(
-        source.parser, "parse", wraps=source.parser.parse
-    ) as parse:
-        first = source.load()
-        second = source.load()
+
+@pytest.fixture
+def library_file():
+    return get_test_data_file("library_files/library.yaml")
+
+
+@pytest.fixture
+def spied_source():
+    """Build a test DataSource whose parser.parse calls are counted."""
+    patchers = []
+
+    def make(cache):
+        source = DataSource(_geo_test_source_spec(), cache=cache)
+        patcher = patch.object(
+            source.parser, "parse", wraps=source.parser.parse
+        )
+        patchers.append(patcher)
+        return source, patcher.start()
+
+    yield make
+    for patcher in patchers:
+        patcher.stop()
+
+
+def test_load_uses_cache_on_second_call(local_cache, spied_source):
+    source, parse = spied_source(local_cache)
+
+    first = source.load()
+    second = source.load()
 
     assert parse.call_count == 1
     pd.testing.assert_frame_equal(first.dnam, second.dnam)
     pd.testing.assert_frame_equal(first.metadata, second.metadata)
 
 
-def test_load_reparses_after_cache_remove(tmp_path):
-    cache = LocalFolderCache(str(tmp_path), 1)
-    source = DataSource(_geo_test_source_spec(), cache=cache)
+def test_load_reparses_after_cache_remove(local_cache, spied_source):
+    source, parse = spied_source(local_cache)
 
-    with patch.object(
-        source.parser, "parse", wraps=source.parser.parse
-    ) as parse:
-        source.load()
-        cache.remove("TestData")
-        source.load()
+    source.load()
+    local_cache.remove("TestData")
+    source.load()
 
     assert parse.call_count == 2
 
 
-def test_load_with_no_cache_always_parses():
-    source = DataSource(_geo_test_source_spec(), cache=NoCache())
+def test_load_with_no_cache_always_parses(spied_source):
+    source, parse = spied_source(NoCache())
 
-    with patch.object(
-        source.parser, "parse", wraps=source.parser.parse
-    ) as parse:
-        source.load()
-        source.load()
+    source.load()
+    source.load()
 
     assert parse.call_count == 2
 
 
-def test_data_library_passes_cache_to_sources(tmp_path):
-    cache = LocalFolderCache(str(tmp_path), 1)
-    library = DataLibrary(
-        library_file=get_test_data_file("library_files/library.yaml"),
-        cache=cache,
-    )
+def test_data_library_passes_cache_to_sources(local_cache, library_file):
+    library = DataLibrary(library_file=library_file, cache=local_cache)
 
-    assert all(source.cache is cache for source in library.sources)
+    assert all(source.cache is local_cache for source in library.sources)
 
 
-def test_data_library_uses_default_cache():
-    library = DataLibrary(
-        library_file=get_test_data_file("library_files/library.yaml")
-    )
+def test_data_library_uses_default_cache(library_file):
+    library = DataLibrary(library_file=library_file)
 
     assert isinstance(library.cache, LocalFolderCache)
     assert all(source.cache is library.cache for source in library.sources)
