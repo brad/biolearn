@@ -9,31 +9,31 @@ def phenotypic_age(df):
     """
     pheno_coefs = {
         "age": 0.0804,
-        "albumin": -0.034,
+        "albumin": -0.0336,
         "creatinine": 0.0095,
         "glucose": 0.1953,
         "c_reactive_protein": 0.0954,
         "lymphocyte_percent": -0.012,
         "mean_cell_volume": 0.0268,
-        "red_blood_cell_distribution_width": 0.3356,
+        "red_blood_cell_distribution_width": 0.3306,
         "alkaline_phosphate": 0.00188,
         "white_blood_cell_count": 0.0554,
     }
 
     constant = -19.9067
-    gamma = 0.0077
+    gamma = 0.0076927
     cs = [141.50225, -0.00553, 0.090165]
 
     # Vectorized calculation - no DataFrame modifications
     pheno = (
         df["age"] * 0.0804
-        + df["albumin"] * -0.034
+        + df["albumin"] * -0.0336
         + df["creatinine"] * 0.0095
         + df["glucose"] * 0.1953
         + np.log(df["c_reactive_protein"]) * 0.0954
         + df["lymphocyte_percent"] * -0.012
         + df["mean_cell_volume"] * 0.0268
-        + df["red_blood_cell_distribution_width"] * 0.3356
+        + df["red_blood_cell_distribution_width"] * 0.3306
         + df["alkaline_phosphate"] * 0.00188
         + df["white_blood_cell_count"] * 0.0554
     )
