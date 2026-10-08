@@ -46,7 +46,9 @@ def _levine_2018(row):
 
 def test_phenotypic_age_matches_levine_2018():
     df = _example()
-    result = phenotypic_age(df)
     expected = _levine_2018(df.iloc[0])
+
+    result = phenotypic_age(df)
+
     assert abs(result.iloc[0] - expected) < 1e-6
     assert abs(result.iloc[0] - 24.3587) < 1e-3
